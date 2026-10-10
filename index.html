@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Store Management Portal</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f9;
+            margin: 0;
+            text-align: center;
+        }
+
+        header {
+            background-color: #253858;
+            color: white;
+            padding: 25px;
+        }
+
+        h1 {
+            margin: 0;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            margin: 40px 20px;
+        }
+
+        .box {
+            background-color: white;
+            padding: 25px;
+            width: 280px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        footer {
+            margin-top: 40px;
+            color: #666;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>Smart Store Management Portal</h1>
+        <p>Cloud-Based Smart Retail Management System</p>
+    </header>
+
+    <div class="container">
+
+        <div class="box">
+            <h2>Store Status</h2>
+            <p id="status">Status: --</p>
+            <button onclick="checkStatus()">Check Status</button>
+        </div>
+
+        <div class="box">
+            <h2>Temperature Monitoring</h2>
+            <p id="temp">Temperature: --</p>
+            <button onclick="checkTemperature()">Check Temperature</button>
+        </div>
+
+        <div class="box">
+            <h2>Inventory Monitoring</h2>
+            <p id="stock">Available Stock: --</p>
+            <button onclick="checkStock()">Check Inventory</button>
+        </div>
+
+    </div>
+
+    <footer>
+        <p>Smart Store Initiative | AWS Cloud Project</p>
+    </footer>
+
+    <script>
+
+        function checkStatus() {
+            document.getElementById("status").textContent =
+                "Store is Active (Demo Status)";
+        }
+
+        async function checkTemperature() {
+            document.getElementById("temp").textContent =
+                "Loading temperature...";
+
+            try {
+                const response = await fetch("/sensor");
+
+                if (!response.ok) {
+                    throw new Error("Sensor request failed");
+                }
+
+                const data = await response.json();
+
+                document.getElementById("temp").textContent =
+                    "Temperature: " + data.temperature + "°C";
+
+            } catch (error) {
+                document.getElementById("temp").textContent =
+                    "Unable to load temperature";
+            }
+        }
+
+        function checkStock() {
+            document.getElementById("stock").textContent =
+                "Available Stock: 150 Items (Demo Data)";
+        }
+
+    </script>
+
+</body>
+</html>
