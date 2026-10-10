@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,19 +9,23 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            background-color: #f4f6f9;
+            background: #f4f6f9;
             margin: 0;
             text-align: center;
         }
 
         header {
-            background-color: #253858;
+            background: #253858;
             color: white;
             padding: 25px;
         }
 
         h1 {
             margin: 0;
+        }
+
+        .login-section {
+            margin: 25px auto;
         }
 
         .container {
@@ -32,7 +37,7 @@
         }
 
         .box {
-            background-color: white;
+            background: white;
             padding: 25px;
             width: 280px;
             border-radius: 10px;
@@ -40,20 +45,30 @@
         }
 
         button {
-            background-color: #007bff;
+            background: #007bff;
             color: white;
             padding: 12px 20px;
             border: none;
             border-radius: 5px;
             cursor: pointer;
+            margin: 5px;
         }
 
         button:hover {
-            background-color: #0056b3;
+            background: #0056b3;
+        }
+
+        button:disabled {
+            background: #999;
+            cursor: not-allowed;
+        }
+
+        #loginStatus {
+            font-weight: bold;
         }
 
         footer {
-            margin-top: 40px;
+            margin: 40px 0 20px;
             color: #666;
         }
     </style>
@@ -66,29 +81,37 @@
         <p>Cloud-Based Smart Retail Management System</p>
     </header>
 
-<div style="text-align:center; margin:20px;">
-    <button onclick="login()">Sign In with Cognito</button>
-    <p id="loginStatus">Not signed in</p>
-</div>
+    <div class="login-section">
+        <button id="loginButton" onclick="login()">
+            Sign In with Cognito
+        </button>
+        <p id="loginStatus">Not signed in</p>
+    </div>
 
     <div class="container">
 
         <div class="box">
             <h2>Store Status</h2>
             <p id="status">Status: --</p>
-            <button onclick="checkStatus()">Check Status</button>
+            <button onclick="checkStatus()">
+                Check Status
+            </button>
         </div>
 
         <div class="box">
             <h2>Temperature Monitoring</h2>
             <p id="temp">Temperature: --</p>
-            <button onclick="checkTemperature()">Check Temperature</button>
+            <button onclick="checkTemperature()">
+                Check Temperature
+            </button>
         </div>
 
         <div class="box">
             <h2>Inventory Monitoring</h2>
             <p id="stock">Available Stock: --</p>
-            <button onclick="checkStock()">Check Inventory</button>
+            <button onclick="checkStock()">
+                Check Inventory
+            </button>
         </div>
 
     </div>
@@ -98,81 +121,85 @@
     </footer>
 
     <script>
+        const clientId = "7a6fn2trd3fo3dvggnb7mgufig";
 
-        
-async function login() {
-    const clientId = "7a6fn2trd3fo3dvggnb7mgufig";
-    const domain =
-        "https://us-east-1vpcl5cfol.auth.us-east-1.amazoncognito.com";
-    const redirectUri =
-        "https://ll6976158-blip.github.io/smart-store-portal/";
+        const cognitoDomain =
+            "https://us-east-1vpcl5cfol.auth.us-east-1.amazoncognito.com";
 
-    const bytes = new Uint8Array(32);
-    crypto.getRandomValues(bytes);
+        const redirectUri =
+            "https://ll6976158-blip.github.io/smart-store-portal/";
 
-    const verifier = Array.from(bytes, b =>
-        b.toString(16).padStart(2, "0")
-    ).join("");
+        function base64url(bytes) {
+            return btoa(
+                String.fromCharCode(...bytes)
+            )
+            .replace(/\+/g, "-")
+            .replace(/\//g, "_")
+            .replace(/=+$/, "");
+        }
 
-    const digest = await crypto.subtle.digest(
-        "SHA-256",
-        new TextEncoder().encode(verifier)
-    );
+        async function login() {
+            try {
+                const verifierBytes = new Uint8Array(32);
+                crypto.getRandomValues(verifierBytes);
 
-    const challenge = btoa(
-        String.fromCharCode(...new Uint8Array(digest))
-    ).replace(/\+/g, "-")
-     .replace(/\//g, "_")
-     .replace(/=+$/, "");
+                const verifier = base64url(verifierBytes);
 
-    const stateBytes = new Uint8Array(16);
-    crypto.getRandomValues(stateBytes);
-    const state = Array.from(stateBytes, b =>
-        b.toString(16).padStart(2, "0")
-    ).join("");
+                const digest = await crypto.subtle.digest(
+                    "SHA-256",
+                    new TextEncoder().encode(verifier)
+                );
 
-    sessionStorage.setItem("pkce_verifier", verifier);
-    sessionStorage.setItem("oauth_state", state);
+                const challenge = base64url(
+                    new Uint8Array(digest)
+                );
 
-    const params = new URLSearchParams({
-        response_type: "code",
-        client_id: clientId,
-        redirect_uri: redirectUri,
-        scope: "openid email",
-        code_challenge_method: "S256",
-        code_challenge: challenge,
-        state: state
-    });
+                const stateBytes = new Uint8Array(16);
+                crypto.getRandomValues(stateBytes);
 
-    window.location.href =
-        domain + "/oauth2/authorize?" + params.toString();
-}
+                const state = base64url(stateBytes);
+
+                sessionStorage.setItem(
+                    "pkce_verifier",
+                    verifier
+                );
+
+                sessionStorage.setItem(
+                    "oauth_state",
+                    state
+                );
+
+                const params = new URLSearchParams({
+                    response_type: "code",
+                    client_id: clientId,
+                    redirect_uri: redirectUri,
+                    scope: "openid email",
+                    code_challenge_method: "S256",
+                    code_challenge: challenge,
+                    state: state
+                });
+
+                window.location.href =
+                    cognitoDomain +
+                    "/oauth2/authorize?" +
+                    params.toString();
+
+            } catch (error) {
+                document.getElementById(
+                    "loginStatus"
+                ).textContent = "Unable to start login";
+                console.error(error);
+            }
+        }
 
         function checkStatus() {
             document.getElementById("status").textContent =
                 "Store is Active (Demo Status)";
         }
 
-        async function checkTemperature() {
+        function checkTemperature() {
             document.getElementById("temp").textContent =
-                "Loading temperature...";
-
-            try {
-                const response = await fetch("/sensor");
-
-                if (!response.ok) {
-                    throw new Error("Sensor request failed");
-                }
-
-                const data = await response.json();
-
-                document.getElementById("temp").textContent =
-                    "Temperature: " + data.temperature + "°C";
-
-            } catch (error) {
-                document.getElementById("temp").textContent =
-                    "Unable to load temperature";
-            }
+                "Please sign in first. Secure API integration pending.";
         }
 
         function checkStock() {
@@ -180,6 +207,32 @@ async function login() {
                 "Available Stock: 150 Items (Demo Data)";
         }
 
+        const query = new URLSearchParams(
+            window.location.search
+        );
+
+        if (query.has("error")) {
+            document.getElementById(
+                "loginStatus"
+            ).textContent =
+                "Login error: " + query.get("error");
+
+            history.replaceState(
+                {},
+                document.title,
+                window.location.pathname
+            );
+
+        } else if (query.has("code")) {
+            document.getElementById(
+                "loginStatus"
+            ).textContent =
+                "Login returned a code. Token exchange pending.";
+
+            // The next step will securely exchange this
+            // authorization code using PKCE.
+            // Do not treat the code as an access token.
+        }
     </script>
 
 </body>
