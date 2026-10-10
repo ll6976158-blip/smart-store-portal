@@ -197,10 +197,65 @@
                 "Store is Active (Demo Status)";
         }
 
-        function checkTemperature() {
-            document.getElementById("temp").textContent =
-                "Please sign in first. Secure API integration pending.";
+       
+async function checkTemperature() {
+    const tempDisplay = document.getElementById("temp");
+
+    const token = window.smartStoreAccessToken;
+
+    if (!token) {
+        tempDisplay.textContent =
+            "Please sign in with Cognito first.";
+        return;
+    }
+
+    tempDisplay.textContent = "Loading temperature...";
+
+    const apiUrl =
+        "https://bjqm62d6d7.execute-api.us-east-1.amazonaws.com/sensor";
+
+    try {
+        const response = await fetch(apiUrl, {
+            method: "GET",
+            headers: {
+                "Authorization": "Bearer " + token
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(
+                "API request failed: " + response.status
+            );
         }
+
+        const result = await response.json();
+
+        // Some Lambda integrations return the data
+        // directly; others wrap it in a body field.
+        let data = result;
+
+        if (result.body !== undefined) {
+            data = typeof result.body === "string"
+                ? JSON.parse(result.body)
+                : result.body;
+        }
+
+        if (data.temperature !== undefined) {
+            tempDisplay.textContent =
+                "Temperature: " + data.temperature + " °C";
+        } else {
+            tempDisplay.textContent =
+                "No temperature value found.";
+            console.log("API response:", data);
+        }
+
+    } catch (error) {
+        tempDisplay.textContent =
+            "Unable to load temperature.";
+        console.error("Smart Store API error:", error);
+    }
+}
+
 
         function checkStock() {
             document.getElementById("stock").textContent =
