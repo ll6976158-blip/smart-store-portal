@@ -278,16 +278,67 @@ async function checkTemperature() {
                 window.location.pathname
             );
 
-        } else if (query.has("code")) {
-            document.getElementById(
-                "loginStatus"
-            ).textContent =
-                "Login returned a code. Token exchange pending.";
+        } 
+} else if (query.has("code")) {
+    const code = query.get("code");
+    const state = query.get("state");
+    const savedState = sessionStorage.getItem("oauth_state");
+    const verifier = sessionStorage.getItem("pkce_verifier");
 
-            // The next step will securely exchange this
-            // authorization code using PKCE.
-            // Do not treat the code as an access token.
-        }
+    history.replaceState(
+        {},
+        document.title,
+        window.location.pathname
+    );
+
+    if (!verifier || !savedState || state !== savedState) {
+        document.getElementById("loginStatus").textContent =
+            "Login verification failed. Please sign in again.";
+    } else {
+        document.getElementById("loginStatus").textContent =
+            "Completing login...";
+
+        sessionStorage.removeItem("pkce_verifier");
+        sessionStorage.removeItem("oauth_state");
+
+        const data = new URLSearchParams({
+            grant_type: "authorization_code",
+            client_id: clientId,
+            code: code,
+            redirect_uri: redirectUri,
+            code_verifier: verifier
+        });
+
+        fetch(cognitoDomain + "/oauth2/token", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            body: data.toString()
+        })
+        .then(async response => {
+            if (!response.ok) {
+                throw new Error("Token exchange failed");
+            }
+            return response.json();
+        })
+        .then(tokens => {
+            window.smartStoreAccessToken = tokens.access_token;
+
+            document.getElementById("loginStatus").textContent =
+                "Signed in successfully!";
+
+            document.getElementById("loginButton").style.display =
+                "none";
+        })
+        .catch(error => {
+            console.error(error);
+            document.getElementById("loginStatus").textContent =
+                "Token exchange failed. Please sign in again.";
+        });
+    }
+}
+
     </script>
 
 </body>
