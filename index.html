@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,51 +7,45 @@
     <title>Smart Store Management Portal</title>
 
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            background: #f4f6f9;
             margin: 0;
+            background: #f4f6f9;
+            font-family: Arial, sans-serif;
             text-align: center;
+            color: #253858;
         }
 
         header {
             background: #253858;
             color: white;
-            padding: 25px;
+            padding: 28px 15px;
         }
 
-        h1 {
+        header h1 {
+            margin: 0 0 10px;
+        }
+
+        header p {
             margin: 0;
         }
 
         .login-section {
-            margin: 25px auto;
-        }
-
-        .container {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 20px;
-            margin: 40px 20px;
-        }
-
-        .box {
-            background: white;
-            padding: 25px;
-            width: 280px;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            padding: 25px 15px 5px;
         }
 
         button {
             background: #007bff;
             color: white;
-            padding: 12px 20px;
             border: none;
-            border-radius: 5px;
-            cursor: pointer;
+            border-radius: 6px;
+            padding: 12px 20px;
             margin: 5px;
+            font-size: 15px;
+            cursor: pointer;
         }
 
         button:hover {
@@ -62,13 +57,44 @@
             cursor: not-allowed;
         }
 
+        #logoutButton {
+            background: #dc3545;
+            display: none;
+        }
+
         #loginStatus {
             font-weight: bold;
+            overflow-wrap: anywhere;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            margin: 35px 15px;
+        }
+
+        .box {
+            width: 290px;
+            min-height: 190px;
+            padding: 25px 18px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .box h2 {
+            font-size: 21px;
+        }
+
+        .box p {
+            min-height: 38px;
         }
 
         footer {
-            margin: 40px 0 20px;
             color: #666;
+            padding: 20px;
         }
     </style>
 </head>
@@ -84,6 +110,11 @@
         <button id="loginButton" onclick="login()">
             Sign In with Cognito
         </button>
+
+        <button id="logoutButton" onclick="logout()">
+            Sign Out
+        </button>
+
         <p id="loginStatus">Not signed in</p>
     </div>
 
@@ -92,6 +123,7 @@
         <div class="box">
             <h2>Store Status</h2>
             <p id="status">Status: --</p>
+
             <button onclick="checkStatus()">
                 Check Status
             </button>
@@ -100,6 +132,7 @@
         <div class="box">
             <h2>Temperature Monitoring</h2>
             <p id="temp">Temperature: --</p>
+
             <button onclick="checkTemperature()">
                 Check Temperature
             </button>
@@ -108,6 +141,7 @@
         <div class="box">
             <h2>Inventory Monitoring</h2>
             <p id="stock">Available Stock: --</p>
+
             <button onclick="checkStock()">
                 Check Inventory
             </button>
@@ -116,17 +150,37 @@
     </div>
 
     <footer>
-        <p>Smart Store Initiative | AWS Cloud Project</p>
+        Smart Store Initiative | AWS Cloud Project
     </footer>
 
     <script>
-        const clientId = "7a6fn2trd3fo3dvggnb7mgufig";
+        // ------------------------------------
+        // AWS COGNITO CONFIGURATION
+        // ------------------------------------
+
+        const clientId =
+            "7a6fn2trd3fo3dvggnb7mgufig";
 
         const cognitoDomain =
             "https://us-east-1vpcl5cfol.auth.us-east-1.amazoncognito.com";
 
         const redirectUri =
             "https://ll6976158-blip.github.io/smart-store-portal/";
+
+        // ------------------------------------
+        // API GATEWAY CONFIGURATION
+        // ------------------------------------
+
+        const apiUrl =
+            "https://bjqm62d6d7.execute-api.us-east-1.amazonaws.com/sensor";
+
+        // Access token kept in page memory
+        let accessToken = null;
+        let tokenExpiry = 0;
+
+        // ------------------------------------
+        // HELPER FUNCTIONS
+        // ------------------------------------
 
         function base64url(bytes) {
             return btoa(
@@ -137,23 +191,54 @@
             .replace(/=+$/, "");
         }
 
+        function showLoginStatus(message) {
+            document.getElementById(
+                "loginStatus"
+            ).textContent = message;
+        }
+
+        function updateLoginButtons(signedIn) {
+            document.getElementById(
+                "loginButton"
+            ).style.display =
+                signedIn ? "none" : "inline-block";
+
+            document.getElementById(
+                "logoutButton"
+            ).style.display =
+                signedIn ? "inline-block" : "none";
+        }
+
+        // ------------------------------------
+        // COGNITO LOGIN WITH PKCE
+        // ------------------------------------
+
         async function login() {
             try {
-                const verifierBytes = new Uint8Array(32);
-                crypto.getRandomValues(verifierBytes);
+                showLoginStatus("Opening Cognito login...");
 
-                const verifier = base64url(verifierBytes);
+                const verifierBytes =
+                    new Uint8Array(32);
 
-                const digest = await crypto.subtle.digest(
-                    "SHA-256",
-                    new TextEncoder().encode(verifier)
+                crypto.getRandomValues(
+                    verifierBytes
                 );
 
-                const challenge = base64url(
-                    new Uint8Array(digest)
-                );
+                const verifier =
+                    base64url(verifierBytes);
 
-                const stateBytes = new Uint8Array(16);
+                const digest =
+                    await crypto.subtle.digest(
+                        "SHA-256",
+                        new TextEncoder().encode(verifier)
+                    );
+
+                const challenge =
+                    base64url(new Uint8Array(digest));
+
+                const stateBytes =
+                    new Uint8Array(16);
+
                 crypto.getRandomValues(stateBytes);
 
                 const state = base64url(stateBytes);
@@ -178,167 +263,301 @@
                     state: state
                 });
 
-                window.location.href =
+                window.location.assign(
                     cognitoDomain +
                     "/oauth2/authorize?" +
-                    params.toString();
+                    params.toString()
+                );
 
             } catch (error) {
-                document.getElementById(
-                    "loginStatus"
-                ).textContent = "Unable to start login";
-                console.error(error);
+                console.error("Login error:", error);
+
+                showLoginStatus(
+                    "Unable to open Cognito login."
+                );
             }
         }
 
-        function checkStatus() {
-            document.getElementById("status").textContent =
-                "Store is Active (Demo Status)";
-        }
+        // ------------------------------------
+        // EXCHANGE AUTHORIZATION CODE
+        // ------------------------------------
 
-       
-async function checkTemperature() {
-    const tempDisplay = document.getElementById("temp");
+        async function handleCognitoCallback() {
+            const query =
+                new URLSearchParams(window.location.search);
 
-    const token = window.smartStoreAccessToken;
+            if (query.has("error")) {
+                const errorDescription =
+                    query.get("error_description") ||
+                    query.get("error");
 
-    if (!token) {
-        tempDisplay.textContent =
-            "Please sign in with Cognito first.";
-        return;
-    }
+                showLoginStatus(
+                    "Cognito error: " + errorDescription
+                );
 
-    tempDisplay.textContent = "Loading temperature...";
+                history.replaceState(
+                    {},
+                    document.title,
+                    window.location.pathname
+                );
 
-    const apiUrl =
-        "https://bjqm62d6d7.execute-api.us-east-1.amazonaws.com/sensor";
-
-    try {
-        const response = await fetch(apiUrl, {
-            method: "GET",
-            headers: {
-                "Authorization": "Bearer " + token
+                return;
             }
-        });
 
-        if (!response.ok) {
-            throw new Error(
-                "API request failed: " + response.status
-            );
-        }
+            if (!query.has("code")) {
+                return;
+            }
 
-        const result = await response.json();
+            const code = query.get("code");
+            const returnedState = query.get("state");
 
-        // Some Lambda integrations return the data
-        // directly; others wrap it in a body field.
-        let data = result;
+            const savedState =
+                sessionStorage.getItem("oauth_state");
 
-        if (result.body !== undefined) {
-            data = typeof result.body === "string"
-                ? JSON.parse(result.body)
-                : result.body;
-        }
+            const verifier =
+                sessionStorage.getItem("pkce_verifier");
 
-        if (data.temperature !== undefined) {
-            tempDisplay.textContent =
-                "Temperature: " + data.temperature + " °C";
-        } else {
-            tempDisplay.textContent =
-                "No temperature value found.";
-            console.log("API response:", data);
-        }
-
-    } catch (error) {
-        tempDisplay.textContent =
-            "Unable to load temperature.";
-        console.error("Smart Store API error:", error);
-    }
-}
-
-
-        function checkStock() {
-            document.getElementById("stock").textContent =
-                "Available Stock: 150 Items (Demo Data)";
-        }
-
-        const query = new URLSearchParams(
-            window.location.search
-        );
-
-        if (query.has("error")) {
-            document.getElementById(
-                "loginStatus"
-            ).textContent =
-                "Login error: " + query.get("error");
-
+            // Remove authorization code from URL
             history.replaceState(
                 {},
                 document.title,
                 window.location.pathname
             );
 
-        } 
-} else if (query.has("code")) {
-    const code = query.get("code");
-    const state = query.get("state");
-    const savedState = sessionStorage.getItem("oauth_state");
-    const verifier = sessionStorage.getItem("pkce_verifier");
-
-    history.replaceState(
-        {},
-        document.title,
-        window.location.pathname
-    );
-
-    if (!verifier || !savedState || state !== savedState) {
-        document.getElementById("loginStatus").textContent =
-            "Login verification failed. Please sign in again.";
-    } else {
-        document.getElementById("loginStatus").textContent =
-            "Completing login...";
-
-        sessionStorage.removeItem("pkce_verifier");
-        sessionStorage.removeItem("oauth_state");
-
-        const data = new URLSearchParams({
-            grant_type: "authorization_code",
-            client_id: clientId,
-            code: code,
-            redirect_uri: redirectUri,
-            code_verifier: verifier
-        });
-
-        fetch(cognitoDomain + "/oauth2/token", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/x-www-form-urlencoded"
-            },
-            body: data.toString()
-        })
-        .then(async response => {
-            if (!response.ok) {
-                throw new Error("Token exchange failed");
+            if (
+                !verifier ||
+                !savedState ||
+                returnedState !== savedState
+            ) {
+                showLoginStatus(
+                    "Login verification failed. Sign in again."
+                );
+                return;
             }
-            return response.json();
-        })
-        .then(tokens => {
-            window.smartStoreAccessToken = tokens.access_token;
 
-            document.getElementById("loginStatus").textContent =
-                "Signed in successfully!";
+            sessionStorage.removeItem("oauth_state");
+            sessionStorage.removeItem("pkce_verifier");
 
-            document.getElementById("loginButton").style.display =
-                "none";
-        })
-        .catch(error => {
-            console.error(error);
-            document.getElementById("loginStatus").textContent =
-                "Token exchange failed. Please sign in again.";
-        });
-    }
-}
+            showLoginStatus(
+                "Completing secure sign-in..."
+            );
+
+            try {
+                const body = new URLSearchParams({
+                    grant_type: "authorization_code",
+                    client_id: clientId,
+                    code: code,
+                    redirect_uri: redirectUri,
+                    code_verifier: verifier
+                });
+
+                const response = await fetch(
+                    cognitoDomain + "/oauth2/token",
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type":
+                                "application/x-www-form-urlencoded"
+                        },
+                        body: body.toString()
+                    }
+                );
+
+                if (!response.ok) {
+                    const details = await response.text();
+
+                    console.error(
+                        "Token endpoint response:",
+                        response.status,
+                        details
+                    );
+
+                    throw new Error(
+                        "Token exchange HTTP " +
+                        response.status
+                    );
+                }
+
+                const tokens = await response.json();
+
+                if (!tokens.access_token) {
+                    throw new Error(
+                        "Access token missing from response"
+                    );
+                }
+
+                accessToken = tokens.access_token;
+
+                tokenExpiry =
+                    Date.now() +
+                    (tokens.expires_in || 3600) * 1000;
+
+                updateLoginButtons(true);
+
+                showLoginStatus(
+                    "Signed in successfully!"
+                );
+
+            } catch (error) {
+                console.error(
+                    "Token exchange error:",
+                    error
+                );
+
+                accessToken = null;
+                tokenExpiry = 0;
+
+                updateLoginButtons(false);
+
+                showLoginStatus(
+                    "Token exchange failed. Please sign in again."
+                );
+            }
+        }
+
+        // ------------------------------------
+        // LOGOUT
+        // ------------------------------------
+
+        function logout() {
+            accessToken = null;
+            tokenExpiry = 0;
+
+            sessionStorage.removeItem("oauth_state");
+            sessionStorage.removeItem("pkce_verifier");
+
+            updateLoginButtons(false);
+            showLoginStatus("Signing out...");
+
+            const params = new URLSearchParams({
+                client_id: clientId,
+                logout_uri: redirectUri
+            });
+
+            window.location.assign(
+                cognitoDomain +
+                "/logout?" +
+                params.toString()
+            );
+        }
+
+        // ------------------------------------
+        // STORE STATUS
+        // ------------------------------------
+
+        function checkStatus() {
+            document.getElementById(
+                "status"
+            ).textContent =
+                "Store is Active (Demo Status)";
+        }
+
+        // ------------------------------------
+        // TEMPERATURE FROM AWS API
+        // ------------------------------------
+
+        async function checkTemperature() {
+            const display =
+                document.getElementById("temp");
+
+            if (
+                !accessToken ||
+                Date.now() >= tokenExpiry
+            ) {
+                display.textContent =
+                    "Please sign in with Cognito first.";
+
+                return;
+            }
+
+            display.textContent =
+                "Loading temperature...";
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: "GET",
+                    headers: {
+                        "Authorization":
+                            "Bearer " + accessToken
+                    }
+                });
+
+                if (response.status === 401 ||
+                    response.status === 403) {
+                    display.textContent =
+                        "Access denied. Check API authorization.";
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error(
+                        "API HTTP " + response.status
+                    );
+                }
+
+                const result = await response.json();
+
+                let data = result;
+
+                if (
+                    result &&
+                    result.body !== undefined
+                ) {
+                    data =
+                        typeof result.body === "string"
+                        ? JSON.parse(result.body)
+                        : result.body;
+                }
+
+                if (
+                    data &&
+                    data.temperature !== undefined
+                ) {
+                    display.textContent =
+                        "Temperature: " +
+                        data.temperature +
+                        " °C";
+                } else {
+                    display.textContent =
+                        "Temperature field not found.";
+
+                    console.log(
+                        "Actual API response:",
+                        data
+                    );
+                }
+
+            } catch (error) {
+                console.error(
+                    "Temperature API error:",
+                    error
+                );
+
+                display.textContent =
+                    "Unable to load temperature. Check console.";
+            }
+        }
+
+        // ------------------------------------
+        // INVENTORY
+        // ------------------------------------
+
+        function checkStock() {
+            document.getElementById(
+                "stock"
+            ).textContent =
+                "Available Stock: 150 Items (Demo Data)";
+        }
+
+        // ------------------------------------
+        // START APPLICATION
+        // ------------------------------------
+
+        updateLoginButtons(false);
+        handleCognitoCallback();
 
     </script>
 
 </body>
 </html>
+
