@@ -66,6 +66,11 @@
         <p>Cloud-Based Smart Retail Management System</p>
     </header>
 
+<div style="text-align:center; margin:20px;">
+    <button onclick="login()">Sign In with Cognito</button>
+    <p id="loginStatus">Not signed in</p>
+</div>
+
     <div class="container">
 
         <div class="box">
@@ -93,6 +98,55 @@
     </footer>
 
     <script>
+
+        
+async function login() {
+    const clientId = "7a6fn2trd3fo3dvggnb7mgufig";
+    const domain =
+        "https://us-east-1vpcl5cfol.auth.us-east-1.amazoncognito.com";
+    const redirectUri =
+        "https://ll6976158-blip.github.io/smart-store-portal/";
+
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+
+    const verifier = Array.from(bytes, b =>
+        b.toString(16).padStart(2, "0")
+    ).join("");
+
+    const digest = await crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(verifier)
+    );
+
+    const challenge = btoa(
+        String.fromCharCode(...new Uint8Array(digest))
+    ).replace(/\+/g, "-")
+     .replace(/\//g, "_")
+     .replace(/=+$/, "");
+
+    const stateBytes = new Uint8Array(16);
+    crypto.getRandomValues(stateBytes);
+    const state = Array.from(stateBytes, b =>
+        b.toString(16).padStart(2, "0")
+    ).join("");
+
+    sessionStorage.setItem("pkce_verifier", verifier);
+    sessionStorage.setItem("oauth_state", state);
+
+    const params = new URLSearchParams({
+        response_type: "code",
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        scope: "openid email",
+        code_challenge_method: "S256",
+        code_challenge: challenge,
+        state: state
+    });
+
+    window.location.href =
+        domain + "/oauth2/authorize?" + params.toString();
+}
 
         function checkStatus() {
             document.getElementById("status").textContent =
